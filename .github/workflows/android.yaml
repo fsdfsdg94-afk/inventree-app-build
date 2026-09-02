@@ -50,12 +50,7 @@ jobs:
       with:
         repository: 'inventree/inventree-app'  # 目标源码仓库
         ref: ${{ steps.version.outputs.tag_name }}
-        path: 'source-code'
-
-    - name: Compile / Build
-      if: steps.check_tag.outputs.exists == 'false'
-      run: |
-        cd source-code
+        path: 'inventree-app'
   
     - name: Setup Java
       if: steps.check_tag.outputs.exists == 'false'
@@ -68,6 +63,8 @@ jobs:
       if: steps.check_tag.outputs.exists == 'false'
       id: fvm-config-action
       uses: kuhnroyal/flutter-fvm-config-action@v2
+      with:
+        working-directory: 'inventree-app'
 
     - uses: subosito/flutter-action@v2
       if: steps.check_tag.outputs.exists == 'false'
@@ -97,7 +94,7 @@ jobs:
     - name: Build for Android
       if: steps.check_tag.outputs.exists == 'false'
       run: |
-        cd source-code
+        cd inventree-app
         dart pub global activate fvm
         fvm install
         fvm flutter pub get
@@ -110,6 +107,6 @@ jobs:
         tag_name: ${{ steps.version.outputs.tag_name }}
         name: "Release ${{ steps.version.outputs.tag_name }}"
         files: |
-          source-code/build/app/outputs/flutter-apk/*.apk
+          inventree-app/build/app/outputs/flutter-apk/*.apk
       env:
         GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
