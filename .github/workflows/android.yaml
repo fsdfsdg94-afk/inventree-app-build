@@ -4,9 +4,14 @@ name: Android
 
 on:
   schedule:
-    - cron: '0 0 * * *' # 每天 UTC 0点执行（可按需修改）
-  workflow_dispatch:     # 支持手动触发
-  
+    - cron: '0 0 * * *' 
+  workflow_dispatch:
+    inputs:
+      version:
+        description: 'Release version'
+        required: false
+        type: string
+
 jobs:
   prepare:
     runs-on: ubuntu-latest
@@ -29,7 +34,11 @@ jobs:
       - name: Get version
         id: version
         run: |
-          VERSION=$(curl -s https://api.github.com/repos/inventree/inventree-app/releases/latest | grep '"tag_name":' | cut -d'"' -f4)
+          if [ -n "${{ github.event.inputs.version }}" ]; then
+            VERSION="${{ github.event.inputs.version }}"
+          else
+            VERSION=$(curl -s https://api.github.com/repos/inventree/inventree-app/releases/latest | grep '"tag_name":' | cut -d'"' -f4)
+          fi
           echo "tag_name=$VERSION" >> $GITHUB_OUTPUT
 
       - name: Check Tag Exists
