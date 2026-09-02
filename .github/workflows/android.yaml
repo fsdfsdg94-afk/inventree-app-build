@@ -48,7 +48,7 @@ jobs:
       if: steps.check_tag.outputs.exists == 'false'
       uses: actions/checkout@v7
       with:
-        repository: 'https://github.com/inventree/inventree-app.git'  # 目标源码仓库
+        repository: 'inventree/inventree-app'  # 目标源码仓库
         ref: ${{ steps.version.outputs.tag_name }}
         path: 'source-code'
 
