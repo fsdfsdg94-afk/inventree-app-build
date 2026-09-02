@@ -1,0 +1,115 @@
+# Build Android version of the app
+
+name: Android
+
+on:
+  schedule:
+    - cron: '0 0 * * *' # 每天 UTC 0点执行（可按需修改）
+  workflow_dispatch:     # 支持手动触发
+  
+jobs:
+
+  build:
+    runs-on: macos-latest
+  
+    permissions:
+      contents: write
+
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v7
+      with:
+        fetch-tags: true
+        fetch-depth: 0
+
+    - name: Get version
+      id: version
+      run: |
+        VERSION=$(curl -s https://api.github.com/repos/inventree/inventree-app/releases/latest | grep '"tag_name":' | cut -d'"' -f4)
+        echo "tag_name=$VERSION" >> $GITHUB_OUTPUT
+
+    # 3. 检查远程仓库中该 Tag 是否已存在
+    - name: Check Tag Exists
+      id: check_tag
+      run: |
+        TAG="${{ steps.version.outputs.tag_name }}"
+        if git rev-parse "refs/tags/$TAG" >/dev/null 2>&1; then
+          echo "exists=true" >> $GITHUB_OUTPUT
+          echo "Tag $TAG already exists. Skipping build."
+        else
+          echo "exists=false" >> $GITHUB_OUTPUT
+          echo "Tag $TAG does not exist. Proceeding with build."
+        fi
+      env:
+        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+    # 4. 核心逻辑：只有当 Tag 不存在时才执行后续步骤
+    - name: Checkout Source Code
+      if: steps.check_tag.outputs.exists == 'false'
+      uses: actions/checkout@v7
+      with:
+        repository: 'https://github.com/inventree/inventree-app.git'  # 目标源码仓库
+        ref: ${{ steps.version.outputs.tag_name }}
+        path: 'source-code'
+
+    - name: Compile / Build
+      if: steps.check_tag.outputs.exists == 'false'
+      run: |
+        cd source-code
+  
+    - name: Setup Java
+      if: steps.check_tag.outputs.exists == 'false'
+      uses: actions/setup-java@v3
+      with:
+        distribution: 'temurin'
+        java-version: '17'
+
+    - name: Setup FVM
+      if: steps.check_tag.outputs.exists == 'false'
+      id: fvm-config-action
+      uses: kuhnroyal/flutter-fvm-config-action@v2
+
+    - uses: subosito/flutter-action@v2
+      if: steps.check_tag.outputs.exists == 'false'
+      with:
+        flutter-version: ${{ steps.fvm-config-action.outputs.FLUTTER_VERSION }}
+        channel: ${{ steps.fvm-config-action.outputs.FLUTTER_CHANNEL }}
+        cache: false
+        cache-key: "flutter-:os:-:channel:-:version:-:arch:-:hash:"
+        cache-path: "${{ runner.tool_cache }}/flutter/:channel:-:version:-:arch:"
+        pub-cache-key: "flutter-pub:os:-:channel:-:version:-:arch:-:hash:"
+        pub-cache-path: "${{ runner.tool_cache }}/flutter/:channel:-:version:-:arch:"
+
+    - run: flutter --version
+
+    - name: Setup Gradle
+      if: steps.check_tag.outputs.exists == 'false'
+      uses: gradle/gradle-build-action@v2.4.2
+      with:
+        gradle-version: 8.11.1
+
+    - name: Collect Translation Files
+      if: steps.check_tag.outputs.exists == 'false'
+      run: |
+        cd lib/l10n
+        python3 collect_translations.py
+
+    - name: Build for Android
+      if: steps.check_tag.outputs.exists == 'false'
+      run: |
+        cd source-code
+        dart pub global activate fvm
+        fvm install
+        fvm flutter pub get
+        fvm flutter build apk --debug
+    
+    - name: Create Tag and Release
+      if: steps.check_tag.outputs.exists == 'false'
+      uses: softprops/action-gh-release@v2
+      with:
+        tag_name: ${{ steps.version.outputs.tag_name }}
+        name: "Release ${{ steps.version.outputs.tag_name }}"
+        files: |
+          source-code/build/app/outputs/flutter-apk/*.apk
+      env:
+        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
