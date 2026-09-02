@@ -111,10 +111,10 @@ jobs:
           dart pub global activate fvm
           fvm install
           fvm flutter pub get
-          fvm flutter build apk --debug
-          cp build/app/outputs/flutter-apk/app-debug.apk build/inventree-app-${{ needs.prepare.outputs.tag_name }}-debug.apk
-          # fvm flutter build apk --release
-          # cp build/app/outputs/flutter-apk/app-release.apk build/inventree-app-${{ needs.prepare.outputs.tag_name }}-release.apk
+          # fvm flutter build apk --debug
+          # cp build/app/outputs/flutter-apk/app-debug.apk build/inventree-app-${{ needs.prepare.outputs.tag_name }}-debug.apk
+          fvm flutter build apk --release
+          cp build/app/outputs/flutter-apk/app-release.apk build/inventree-app-${{ needs.prepare.outputs.tag_name }}-release.apk
       
       - name: Create Tag and Release
         uses: softprops/action-gh-release@v2
@@ -123,7 +123,7 @@ jobs:
           name: "${{ needs.prepare.outputs.tag_name }}"
           body: ${{ needs.prepare.outputs.tag_name }}
           files: |
-            build/inventree-app-${{ needs.prepare.outputs.tag_name }}-debug.apk
-            # build/inventree-app-${{ needs.prepare.outputs.tag_name }}-release.apk
+            # build/inventree-app-${{ needs.prepare.outputs.tag_name }}-debug.apk
+            build/inventree-app-${{ needs.prepare.outputs.tag_name }}-release.apk
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
