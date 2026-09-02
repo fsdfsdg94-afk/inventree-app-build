@@ -16,11 +16,15 @@ jobs:
     steps:
       - name: Checkout Actions Repo
         uses: actions/checkout@v7
+        with:
+          fetch-tags: true
+          fetch-depth: 0
 
       - name: Run root commands
         run: |
           echo "Current directory (Root):"
           pwd
+          ls -lash
 
       - name: Get version
         id: version
@@ -47,66 +51,68 @@ jobs:
     if: needs.prepare.outputs.tag_exists == 'false'
     runs-on: macos-latest
   
-    defaults:
-      run:
-        working-directory: inventree-app
-
     permissions:
       contents: write
 
     steps:
-    - name: Checkout inventree-app
-      uses: actions/checkout@v7
-      with:
-        repository: 'inventree/inventree-app'  # 目标源码仓库
-        ref: ${{ needs.prepare.outputs.tag_name }}
-        path: 'inventree-app'
-  
-    - name: Setup Java
-      uses: actions/setup-java@v3
-      with:
-        distribution: 'temurin'
-        java-version: '17'
+      - name: Checkout inventree-app
+        uses: actions/checkout@v7
+        with:
+          repository: 'inventree/inventree-app'  # 目标源码仓库
+          ref: ${{ needs.prepare.outputs.tag_name }}
+          path: '.'
 
-    - name: Setup FVM
-      id: fvm-config-action
-      uses: kuhnroyal/flutter-fvm-config-action@v2
+      - name: Run root commands
+        run: |
+          echo "Current directory (Root):"
+          pwd
+          ls -lash
 
-    - uses: subosito/flutter-action@v2
-      with:
-        flutter-version: ${{ steps.fvm-config-action.outputs.FLUTTER_VERSION }}
-        channel: ${{ steps.fvm-config-action.outputs.FLUTTER_CHANNEL }}
-        cache: false
-        cache-key: "flutter-:os:-:channel:-:version:-:arch:-:hash:"
-        cache-path: "${{ runner.tool_cache }}/flutter/:channel:-:version:-:arch:"
-        pub-cache-key: "flutter-pub:os:-:channel:-:version:-:arch:-:hash:"
-        pub-cache-path: "${{ runner.tool_cache }}/flutter/:channel:-:version:-:arch:"
+      - name: Setup Java
+        uses: actions/setup-java@v3
+        with:
+          distribution: 'temurin'
+          java-version: '17'
 
-    - run: flutter --version
+      - name: Setup FVM
+        id: fvm-config-action
+        uses: kuhnroyal/flutter-fvm-config-action@v2
 
-    - name: Setup Gradle
-      uses: gradle/gradle-build-action@v2.4.2
-      with:
-        gradle-version: 8.11.1
+      - uses: subosito/flutter-action@v2
+        with:
+          flutter-version: ${{ steps.fvm-config-action.outputs.FLUTTER_VERSION }}
+          channel: ${{ steps.fvm-config-action.outputs.FLUTTER_CHANNEL }}
+          cache: false
+          cache-key: "flutter-:os:-:channel:-:version:-:arch:-:hash:"
+          cache-path: "${{ runner.tool_cache }}/flutter/:channel:-:version:-:arch:"
+          pub-cache-key: "flutter-pub:os:-:channel:-:version:-:arch:-:hash:"
+          pub-cache-path: "${{ runner.tool_cache }}/flutter/:channel:-:version:-:arch:"
 
-    - name: Collect Translation Files
-      run: |
-        cd lib/l10n
-        python3 collect_translations.py
+      - run: flutter --version
 
-    - name: Build for Android
-      run: |
-        dart pub global activate fvm
-        fvm install
-        fvm flutter pub get
-        fvm flutter build apk --debug
-    
-    - name: Create Tag and Release
-      uses: softprops/action-gh-release@v2
-      with:
-        tag_name: ${{ needs.prepare.outputs.tag_name }}
-        name: "Release ${{ needs.prepare.outputs.tag_name }}"
-        files: |
-          inventree-app/build/app/outputs/flutter-apk/*.apk
-      env:
-        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      - name: Setup Gradle
+        uses: gradle/gradle-build-action@v2.4.2
+        with:
+          gradle-version: 8.11.1
+
+      - name: Collect Translation Files
+        run: |
+          cd lib/l10n
+          python3 collect_translations.py
+
+      - name: Build for Android
+        run: |
+          dart pub global activate fvm
+          fvm install
+          fvm flutter pub get
+          fvm flutter build apk --debug
+      
+      - name: Create Tag and Release
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: ${{ needs.prepare.outputs.tag_name }}
+          name: "Release ${{ needs.prepare.outputs.tag_name }}"
+          files: |
+            inventree-app/build/app/outputs/flutter-apk/*.apk
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
